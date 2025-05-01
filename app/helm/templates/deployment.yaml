@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      serviceAccountName: aurora-app-sa
+      containers:
+      - name: {{ .Values.name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        ports:
+        - containerPort: 80
+        env:
+        - name: ConnectionStrings__Default
+          value: "Host=$(DB_HOST);Port=5432;Database=weatherdb;Username=$(DB_USER);Password=$(DB_PASSWORD)"
+        - name: ConnectionStrings__ReadOnly
+          value: "Host=$(DB_HOST_RO);Port=5432;Database=weatherdb;Username=$(DB_USER);Password=$(DB_PASSWORD)"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: writer_endpoint
+        - name: DB_HOST_RO
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: writer_endpoint
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: master_username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: master_password
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 80
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 80
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: aurora-db-secret

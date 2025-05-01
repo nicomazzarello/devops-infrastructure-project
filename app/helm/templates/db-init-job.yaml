@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weather-db-init
+spec:
+  template:
+    spec:
+      serviceAccountName: aurora-app-sa
+      restartPolicy: Never
+      containers:
+        - name: init-db
+          image: postgres:16
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: writer_endpoint
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: master_username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: master_password
+            - name: PGDATABASE
+              value: "weatherdb"
+          volumeMounts:
+            - name: sql
+              mountPath: /scripts
+              readOnly: true
+          command: ["/bin/sh", "-c"]
+          args:
+            - psql -f /scripts/init.sql
+      volumes:
+        - name: sql
+          configMap:
+            name: weather-init-sql

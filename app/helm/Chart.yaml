@@ -1,0 +1,4 @@
+apiVersion: v2
+name: weather-app
+description: .NET weather app for KIU
+version: 0.1.0
